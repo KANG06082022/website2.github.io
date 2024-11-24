@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片水印工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        #imagePreview {
+            max-width: 100%;
+            margin: 20px 0;
+            display: none;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        input, button {
+            margin: 10px;
+            padding: 8px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #clearBtn {
+            background-color: #f44336;
+        }
+        #clearBtn:hover {
+            background-color: #da190b;
+        }
+        #watermarkText {
+            width: 80%;
+            max-width: 300px;
+        }
+        .options {
+            margin: 20px 0;
+        }
+        .options label {
+            margin: 0 10px;
+        }
+        .privacy-notice {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>图片水印工具</h1>
+    <div class="privacy-notice">
+        🔒 隐私提示：所有图片处理都在您的浏览器中完成，我们不会保存或上传您的图片
+    </div>
+    <div class="container">
+        <input type="file" id="imageInput" accept="image/*">
+        <img id="imagePreview">
+        <div class="controls">
+            <input type="text" id="watermarkText" placeholder="输入水印文字">
+            <div class="options">
+                <label>
+                    字体大小:
+                    <input type="number" id="fontSize" value="48" min="8" max="200">
+                </label>
+                <label>
+                    透明度:
+                    <input type="range" id="opacity" min="0" max="100" value="30">
+                </label>
+                <label>
+                    颜色:
+                    <select id="watermarkColor">
+                        <option value="white">白色</option>
+                        <option value="black">黑色</option>
+                        <option value="red">红色</option>
+                        <option value="blue">蓝色</option>
+                    </select>
+                </label>
+            </div>
+            <button onclick="addWatermark()">添加水印</button>
+            <button onclick="downloadImage()" id="downloadBtn" style="display: none;">下载图片</button>
+            <button onclick="clearAll()" id="clearBtn">清除重置</button>
+        </div>
+    </div>
+
+    <script>
+        let originalImage = null;
+        let watermarkedImage = null;
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = document.getElementById('imagePreview');
+                    img.src = event.target.result;
+                    img.style.display = 'block';
+                    originalImage = event.target.result;
+                    document.getElementById('downloadBtn').style.display = 'none';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function clearAll() {
+            // 清除图片预览
+            const imagePreview = document.getElementById('imagePreview');
+            imagePreview.src = '';
+            imagePreview.style.display = 'none';
+            
+            // 清除文件输入
+            document.getElementById('imageInput').value = '';
+            
+            // 清除水印文本
+            document.getElementById('watermarkText').value = '';
+            
+            // 重置所有选项到默认值
+            document.getElementById('fontSize').value = '48';
+            document.getElementById('opacity').value = '30';
+            document.getElementById('watermarkColor').value = 'white';
+            
+            // 隐藏下载按钮
+            document.getElementById('downloadBtn').style.display = 'none';
+            
+            // 清除存储的图片数据
+            originalImage = null;
+            watermarkedImage = null;
+        }
+
+        function addWatermark() {
+            if (!originalImage) {
+                alert('请先上传图片');
+                return;
+            }
+
+            const text = document.getElementById('watermarkText').value;
+            if (!text) {
+                alert('请输入水印文字');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = function() {
+                // 设置canvas尺寸为图片实际尺寸
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                // 绘制原始图片
+                ctx.drawImage(img, 0, 0);
+
+                // 获取水印设置
+                const fontSize = document.getElementById('fontSize').value;
+                const opacity = document.getElementById('opacity').value / 100;
+                const color = document.getElementById('watermarkColor').value;
+
+                // 设置水印样式
+                ctx.font = `${fontSize}px Arial`;
+                ctx.fillStyle = color;
+                ctx.globalAlpha = opacity;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // 计算文字宽度
+                const textWidth = ctx.measureText(text).width;
+
+                // 在整个图片上重复添加水印
+                const spacing = textWidth * 1.5; // 水印之间的间距
+                const angleInRadians = -Math.PI / 6; // -30度角
+
+                ctx.save(); // 保存当前状态
+                ctx.rotate(angleInRadians);
+
+                // 计算旋转后需要覆盖的范围
+                const diagonal = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+                const xStart = -diagonal;
+                const xEnd = diagonal;
+                const yStart = -diagonal;
+                const yEnd = diagonal;
+
+                // 重复绘制水印
+                for (let y = yStart; y < yEnd; y += spacing) {
+                    for (let x = xStart; x < xEnd; x += spacing) {
+                        ctx.fillText(text, x, y);
+                    }
+                }
+
+                ctx.restore(); // 恢复到之前的状态
+
+                // 显示处理后的图片
+                const previewImg = document.getElementById('imagePreview');
+                watermarkedImage = canvas.toDataURL('image/jpeg', 1.0);
+                previewImg.src = watermarkedImage;
+                document.getElementById('downloadBtn').style.display = 'inline-block';
+            };
+
+            img.src = originalImage;
+        }
+
+        function downloadImage() {
+            if (!watermarkedImage) {
+                alert('请先添加水印');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = 'watermarked-image.jpg';
+            link.href = watermarkedImage;
+            link.click();
+        }
+    </script>
+</body>
+</html>
